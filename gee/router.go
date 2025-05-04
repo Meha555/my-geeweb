@@ -1,7 +1,6 @@
 package gee
 
 import (
-	"log"
 	"net/http"
 	"strings"
 )
@@ -37,7 +36,6 @@ func parsePattern(pattern string) []string {
 }
 
 func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
-	log.Printf("Route %4s - %s", method, pattern)
 	parts := parsePattern(pattern)
 
 	key := method + "-" + pattern
@@ -92,8 +90,12 @@ func (r *router) handle(c *Context) {
 	if node != nil {
 		c.Params = params
 		key := c.Method + "-" + node.pattern // 注意这里需要使用解析后的动态参数路由，所以不能用c.Path
-		r.handlers[key](c)
+		c.handlers = append(c.handlers, r.handlers[key])
 	} else {
-		c.Error(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
+		c.handlers = append(c.handlers, func(c *Context) {
+			c.Error(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
+		})
 	}
+	// 开始执行洋葱模型
+	c.Next()
 }

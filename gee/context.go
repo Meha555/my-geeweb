@@ -3,6 +3,7 @@ package gee
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -17,6 +18,10 @@ type Context struct {
 	Params map[string]string
 	// response info
 	StatusCode int
+	// middleware info
+	handlers []HandlerFunc // 整个路由上绑定的中间件，最后一个应当是用户的业务Handler
+	index    int           // 当前执行到第几个中间件
+	// abort    bool          // 是否中断洋葱模型
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -25,6 +30,7 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
 		Req:    r,
 		Method: r.Method,
 		Path:   r.URL.Path,
+		index:  -1,
 	}
 }
 
@@ -68,7 +74,7 @@ func (c *Context) Data(code int, data []byte) {
 }
 
 func (c *Context) Error(code int, format string, values ...interface{}) {
-	c.SetStatus(code)
+	c.StatusCode = code
 	http.Error(c.Writer, fmt.Sprintf(format, values...), code)
 }
 
@@ -85,4 +91,26 @@ func (c *Context) HTML(code int, html string) {
 	c.SetHeader("Content-Type", "text/html")
 	c.SetStatus(code)
 	c.Writer.Write([]byte(html))
+}
+
+/* ----------------------------------- 中间件 ---------------------------------- */
+
+// Next 实现了DFS
+func (c *Context) Next() {
+	c.index++
+	// if !c.abort {
+	// 	c.handlers[c.index](c)
+	// }
+	l := len(c.handlers)
+	// 这里实现了BFS，主要是避免用户实现的中间件忘记调用Next()
+	for ; c.index < l; /*&& !c.abort*/ c.index++ {
+		c.handlers[c.index](c)
+	}
+}
+
+// Abort 终止后续中间件的执行。Abort+return终止此后所有代码的执行
+func (c *Context) Abort() {
+	log.Printf("Abort handling at handlers[%d]", c.index)
+	// c.abort = true
+	c.index = len(c.handlers)
 }
