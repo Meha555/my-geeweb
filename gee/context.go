@@ -14,6 +14,7 @@ type Context struct {
 	// request info
 	Method string
 	Path   string
+	Params map[string]string
 	// response info
 	StatusCode int
 }
@@ -35,6 +36,10 @@ func (c *Context) Query(key string) string {
 
 func (c *Context) PostForm(key string) string {
 	return c.Req.FormValue(key)
+}
+
+func (c *Context) Param(key string) string {
+	return c.Params[key]
 }
 
 /* ---------------------------------- response封装：设置参数 ---------------------------------- */
