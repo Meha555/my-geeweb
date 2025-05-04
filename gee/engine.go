@@ -1,6 +1,7 @@
 package gee
 
 import (
+	"html/template"
 	"net/http"
 	"strings"
 )
@@ -13,8 +14,10 @@ type Engine struct {
 	// Engine将会作为最顶层的分组，因此Engine也要作为一个RouterGroup,具有RouterGroup的所有能力
 	// 这里让Engine嵌套routerGroup的原因是，Go语言的嵌套在其他语言中类似于继承，子类必然是比父类有更多的成员变量和方法。RouterGroup 仅仅是负责分组路由，Engine 除了分组路由外，还有很多其他的功能。RouterGroup 继承 Engine 的 Run()，ServeHTTP 等方法是没有意义的。
 	*routerGroup
-	groups []*routerGroup
-	router *router
+	groups        []*routerGroup
+	router        *router
+	htmlTemplates *template.Template // 将所有的模板加载进内存
+	funcMap       template.FuncMap   // 所有的自定义模板渲染函数
 }
 
 func New() *Engine {
@@ -37,6 +40,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	c := newContext(w, req)
+	c.engine = e
 	c.handlers = middlewares
 	e.router.handle(c)
 }
@@ -46,9 +50,18 @@ func (e *Engine) Run(addr string) (err error) {
 	return err
 }
 
+
 // Default use Logger() & Recovery middlewares
 func Default() *Engine {
 	engine := New()
 	engine.Use(Logger(), Recovery())
 	return engine
+}
+
+func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
+	e.funcMap = funcMap
+}
+
+func (e *Engine) LoadHTMLGlob(pattern string) {
+	e.htmlTemplates = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }

@@ -39,7 +39,7 @@ func Recovery() HandlerFunc {
 // trace acquire stack trace for debug
 func trace(message string) string {
 	var pcs [32]uintptr
-	n := runtime.Callers(4, pcs[:]) // skip first 3 caller
+	n := runtime.Callers(4, pcs[:]) // skip first 4 caller
 
 	var builder strings.Builder
 	builder.WriteString(message + "\nTraceback:")

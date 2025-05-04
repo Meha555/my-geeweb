@@ -43,6 +43,7 @@ func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
 	if !ok {
 		r.roots[method] = &node{}
 	}
+	// 构造一颗新的字典树
 	r.roots[method].insert(pattern, parts, 0) // 切片的下标从0开始，所以这里树高也规定为从0开始
 	r.handlers[key] = handler
 }
@@ -59,12 +60,15 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 	node := root.search(searchParts, 0)
 	// 如果存在这个节点
 	if node != nil {
+        // 解析动态路由参数（将/p/cpp和/p/:lang对应起来，从而识别到cpp是动态参数lang的值）
 		parts := parsePattern(node.pattern)
 		for index, part := range parts {
 			if part[0] == ':' {
+				// 将对应位置的实际值作为:参数的值
 				params[part[1:]] = searchParts[index]
 			}
 			if part[0] == '*' && len(part) > 1 {
+				// 将对应位置开始后的所有实际值作为*参数的值
 				params[part[1:]] = strings.Join(searchParts[index:], "/")
 				break
 			}

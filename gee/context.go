@@ -22,6 +22,8 @@ type Context struct {
 	handlers []HandlerFunc // 整个路由上绑定的中间件，最后一个应当是用户的业务Handler
 	index    int           // 当前执行到第几个中间件
 	// abort    bool          // 是否中断洋葱模型
+
+	engine *Engine
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -87,10 +89,12 @@ func (c *Context) JSON(code int, obj interface{}) {
 	}
 }
 
-func (c *Context) HTML(code int, html string) {
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.SetStatus(code)
-	c.Writer.Write([]byte(html))
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Error(http.StatusInternalServerError, err.Error())
+	}
 }
 
 /* ----------------------------------- 中间件 ---------------------------------- */
@@ -102,7 +106,7 @@ func (c *Context) Next() {
 	// 	c.handlers[c.index](c)
 	// }
 	l := len(c.handlers)
-	// 这里实现了BFS，主要是避免用户实现的中间件忘记调用Next()
+	// 这里实现了BFS，主要是避免用户实现的中间件忘记调用Next()。只不过这种忘记写Next()的中间件会完全变成前处理而失去了后处理的能力
 	for ; c.index < l; /*&& !c.abort*/ c.index++ {
 		c.handlers[c.index](c)
 	}

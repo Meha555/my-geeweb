@@ -8,13 +8,14 @@ import (
 type node struct {
 	pattern  string  // 完整路由，例如 /p/:lang
 	part     string  // 当前节点对应路由中的那一部分，例如 :lang
-	children []*node // 子节点，例如 [doc, tutorial, intro]
-	isWild   bool    // 是否精确匹配，part 含有 : 或 * 时为true
+	children []*node // 直接子节点，例如 [doc, tutorial, intro]
+	isWild   bool    // 是否是通配符，part 含有 : 或 * 时为true
 }
 
-// 第一个匹配成功的节点，用于插入
+// 找到第一个匹配成功的节点，用于插入
 func (n *node) matchChild(part string) *node {
 	for _, child := range n.children {
+		// 如果是精确匹配或通配，那么认为找到了
 		if child.part == part || child.isWild {
 			return child
 		}
@@ -22,17 +23,18 @@ func (n *node) matchChild(part string) *node {
 	return nil
 }
 
-// 所有匹配成功的节点，用于查找
+// 找到所有匹配成功的节点，用于查找
 func (n *node) matchChildren(part string) []*node {
 	nodes := make([]*node, 0)
 	for _, child := range n.children {
+		// 如果是精确匹配或通配，那么认为找到了
 		if child.part == part || child.isWild {
 			nodes = append(nodes, child)
 		}
 	}
 	return nodes
 }
-
+// travek DFS all nodes
 func (n *node) travel(list *([]*node)) {
 	if n.pattern != "" {
 		*list = append(*list, n)
@@ -41,7 +43,7 @@ func (n *node) travel(list *([]*node)) {
 		child.travel(list)
 	}
 }
-
+// insert node by DFS
 func (n *node) insert(pattern string, parts []string, height int) {
 	// bound 到达叶节点，此节点就是需要插入的节点
 	if len(parts) == height {
@@ -57,7 +59,7 @@ func (n *node) insert(pattern string, parts []string, height int) {
 	}
 	child.insert(pattern, parts, height+1)
 }
-
+// search node by DFS
 func (n *node) search(parts []string, height int) *node {
 	// bound 遇到叶节点说明找到了
 	if len(parts) == height || strings.HasPrefix(n.part, "*") {

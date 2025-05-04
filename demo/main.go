@@ -1,82 +1,49 @@
 package main
 
 import (
+	"fmt"
 	"gee/gee"
-	"log"
+	"html/template"
 	"net/http"
+	"time"
 )
 
-func forAbort() gee.HandlerFunc {
-	return func(c *gee.Context) {
-		log.Printf("Aborting....")
-		c.Abort()
-	}
+type student struct {
+	Name string
+	Age  int8
 }
 
-func forNext1() gee.HandlerFunc {
-	return func(c *gee.Context) {
-		log.Printf("Next1 before....")
-		c.Next()
-		log.Printf("Next1 after....")
-	}
-}
-
-func forNext2() gee.HandlerFunc {
-	return func(c *gee.Context) {
-		log.Printf("Next2 before....")
-		c.Next()
-		log.Printf("Next2 after....")
-	}
+func FormatAsDate(t time.Time) string {
+	year, month, day := t.Date()
+	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
 }
 
 func main() {
 	r := gee.Default()
 
-	r.GET("/index", func(c *gee.Context) {
-		log.Println("do /index")
-		c.HTML(http.StatusOK, "<h1>Index Page</h1>")
+	r.SetFuncMap(template.FuncMap{
+		"FormatAsDate": FormatAsDate,
 	})
-	r.GET("/recovery", func(c *gee.Context) {
-		log.Println("do /recovery")
-		panic("crash!!!!!")
-		c.Text(http.StatusOK, "recover failed....")
+	r.LoadHTMLGlob("templates/*")
+	r.Static("/assets", "./static")
+	stu1 := &student{Name: "Geektutu", Age: 20}
+	stu2 := &student{Name: "Jack", Age: 22}
+	r.GET("/", func(c *gee.Context) {
+		c.HTML(http.StatusOK, "css.tmpl", nil)
 	})
-	v1 := r.Group("/v1")
-	{
-		v1.GET("/", func(c *gee.Context) {
-			log.Println("do /")
-			c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
+	r.GET("/students", func(c *gee.Context) {
+		c.HTML(http.StatusOK, "arr.tmpl", gee.H{
+			"title":  "gee",
+			"stuArr": [2]*student{stu1, stu2},
 		})
+	})
 
-		v1.GET("/hello", func(c *gee.Context) {
-			log.Println("do /hello")
-			// expect /hello?name=geektutu
-			c.Text(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+	r.GET("/date", func(c *gee.Context) {
+		c.HTML(http.StatusOK, "custom_func.tmpl", gee.H{
+			"title": "gee",
+			"now":   time.Date(2019, 8, 17, 0, 0, 0, 0, time.UTC),
 		})
-
-		a := v1.Group("/abort")
-		a.Use(forNext1(), forAbort(), forNext2())
-		a.GET("/abortNow", func(c *gee.Context) {
-			log.Println("do /abortNow")
-			c.Text(http.StatusOK, "fail to abort....")
-		})
-	}
-	v2 := r.Group("/v2")
-	v2.Use(forNext1(), forNext2())
-	{
-		v2.GET("/hello/:name", func(c *gee.Context) {
-			log.Println("do /hello/:name")
-			// expect /hello/geektutu
-			c.Text(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
-		})
-		v2.POST("/login", func(c *gee.Context) {
-			log.Println("do /login")
-			c.JSON(http.StatusOK, gee.H{
-				"username": c.PostForm("username"),
-				"password": c.PostForm("password"),
-			})
-		})
-	}
+	})
 
 	r.Run(":9999")
 }
